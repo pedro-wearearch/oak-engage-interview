@@ -1,53 +1,118 @@
-import { render, screen } from "@testing-library/react";
-import { describe, it, expect, vi } from "vitest";
+import { render, screen, fireEvent, waitFor } from "@testing-library/react";
+import { describe, expect, it, vi, Mock } from "vitest";
 import App from "../src/App";
-import React, { act } from "react";
+import React from "react";
 
-describe("App", () => {
-  it("should render the App component", () => {
+vi.stubGlobal("fetch", vi.fn());
+
+describe("App Component", () => {
+  it("displays validation errors", async () => {
     render(<App />);
-    const button = screen.getByRole("button");
 
-    expect(button).toBeInTheDocument();
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(
+      () => {
+        const addressErrors = screen.queryAllByText(/Address is required/i);
+        const guarantorAddressErrors = screen.queryAllByText(
+          /Guarantor address is required/i
+        );
+
+        expect(addressErrors.length).toBeGreaterThan(0);
+        expect(guarantorAddressErrors.length).toBeGreaterThan(0);
+        expect(screen.getByText(/First name is required/i)).toBeInTheDocument();
+        expect(screen.getByText(/Last name is required/i)).toBeInTheDocument();
+        expect(
+          screen.getByText(/Employer name is required/i)
+        ).toBeInTheDocument();
+        expect(
+          screen.getByText(/Guarantor address is required/i)
+        ).toBeInTheDocument();
+      },
+      { timeout: 1000 }
+    );
   });
+  it("submits the correct payload", async () => {
+    const mockResponse = { success: true };
+    (fetch as Mock).mockResolvedValueOnce({
+      ok: true,
+      json: async () => mockResponse,
+    });
 
-  it("should toggle the button state", () => {
+    const firstName = "First name";
+    const lastName = "Last name";
+    const address = "Address 1, Address 2, ...";
+    const employerName = "Employer";
+    const startDate = "20180301";
+    const endDate = "20190815";
+    const guarantorName = "Guarantor Name";
+    const guarantorAddress = "Guarantor Address";
+    const relationship = "sibling";
+
     render(<App />);
 
-    let buttonWithState: HTMLElement;
-    act(() => {
-      const button = screen.getByRole("button");
-      button.click();
+    fireEvent.change(screen.getByLabelText("First Name"), {
+      target: { value: firstName },
+    });
+    fireEvent.change(screen.getByLabelText("Last Name"), {
+      target: { value: lastName },
+    });
+    fireEvent.change(screen.getByLabelText("Address"), {
+      target: { value: address },
     });
 
-    buttonWithState = screen.getByRole("button", { pressed: true });
-    expect(buttonWithState).toBeInTheDocument();
-
-    act(() => {
-      const button = screen.getByRole("button");
-      button.click();
+    fireEvent.change(screen.getByLabelText("Employer Name"), {
+      target: { value: employerName },
+    });
+    fireEvent.change(screen.getByLabelText("Start date"), {
+      target: { value: startDate },
+    });
+    fireEvent.change(screen.getByLabelText("End date"), {
+      target: { value: endDate },
     });
 
-    buttonWithState = screen.getByRole("button", { pressed: false });
-    expect(buttonWithState).toBeInTheDocument();
-  });
-
-  it("should reset the button state after 2 seconds", () => {
-    vi.useFakeTimers();
-    render(<App />);
-
-    act(() => {
-      const button = screen.getByRole("button");
-      button.click();
+    fireEvent.change(screen.getByLabelText("Guarantor Name"), {
+      target: { value: guarantorName },
+    });
+    fireEvent.change(screen.getByLabelText("Guarantor Address"), {
+      target: { value: guarantorAddress },
+    });
+    fireEvent.change(screen.getByLabelText("Relationship to guarantor"), {
+      target: { value: relationship },
     });
 
-    act(() => {
-      vi.advanceTimersByTime(2000);
+    fireEvent.submit(screen.getByRole("form"));
+
+    await waitFor(() => {
+      expect(fetch).toHaveBeenCalledWith(
+        "https://ref-api.goodlord.co/reference/new",
+        {
+          method: "POST",
+          mode: "no-cors",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            personal: {
+              first_name: firstName,
+              last_name: lastName,
+              current_address: address,
+            },
+            employer: [
+              {
+                name: employerName,
+                start_date: startDate,
+                end_date: endDate,
+              },
+            ],
+            guarantor: {
+              name: guarantorName,
+              address: guarantorAddress,
+              relationship: relationship,
+            },
+          }),
+        }
+      );
     });
-
-    const button = screen.getByRole("button", { pressed: false });
-    expect(button).toBeInTheDocument();
-
-    vi.useRealTimers();
   });
 });

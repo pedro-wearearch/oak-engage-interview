@@ -1,12 +1,27 @@
-# How to run app
+# React + TypeScript + Vite
 
-```javascript
-// install dependencies
+### First step install dependencies
+
 npm install
 
-// run app
+yarn install
+
+pnpm install
+
+### Second step
+
 npm run dev
 
-// run test suite
+yarn run dev
+
+pnpm run dev
+
+### Test  
+
 npm run test
-```
+
+yarn test
+
+pnpm test
+
+
